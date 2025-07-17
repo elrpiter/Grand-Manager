@@ -1,72 +1,146 @@
 using UnityEngine;
 using System.Collections.Generic;
-using TMPro; // IMPORTANTE: Precisamos disso para interagir com textos do TextMeshPro.
+using TMPro;
+using System.Text;
+using System.Linq; // Essencial para usar funções como .ToList()
 
 public class GerenciadorDoJogo : MonoBehaviour
 {
-    public Time timeA;
-    public Time timeB;
-
-    // ==================================================================
-    // NOVO: Uma referência para o nosso objeto de Texto na UI.
-    // ==================================================================
+    public Liga nossaLiga;
     public TextMeshProUGUI textoResultadoUI;
 
+    private int rodadaAtual = 0;
+    private int jogosPorRodada;
 
     void Start()
     {
-        // --- CRIAÇÃO DOS TIMES (sem mudanças aqui) ---
-        timeA = new Time();
-        timeA.nomeDoClube = "Unidos da Vila";
-        timeA.reputacao = 4;
+        CriarLiga();
+        GerarCalendario(nossaLiga); // Agora esta função é muito mais inteligente.
+
+        jogosPorRodada = nossaLiga.timesDaLiga.Count / 2;
+
+        Debug.Log("Liga '" + nossaLiga.nomeDaLiga + "' pronta. Calendário de " + (nossaLiga.calendario.Count / jogosPorRodada) + " rodadas gerado.");
+        textoResultadoUI.text = "Clique em 'Simular Rodada' para começar a temporada!";
+    }
+
+    void CriarLiga()
+    {
+        nossaLiga = new Liga { nomeDaLiga = "Campeonato das Lendas" };
+
+        Time timeA = new Time { nomeDoClube = "Unidos da Vila", reputacao = 4 };
         timeA.elenco.Add(new Jogador { nome = "Ronaldo", ataque = 95, defesa = 30, velocidade = 90, resistencia = 80 });
-        timeA.elenco.Add(new Jogador { nome = "Zidane", ataque = 90, defesa = 75, velocidade = 85, resistencia = 90 });
-        timeA.elenco.Add(new Jogador { nome = "Maldini", ataque = 60, defesa = 98, velocidade = 88, resistencia = 95 });
 
-        timeB = new Time();
-        timeB.nomeDoClube = "Dragões da Colina";
-        timeB.reputacao = 3;
+        Time timeB = new Time { nomeDoClube = "Dragões da Colina", reputacao = 3 };
         timeB.elenco.Add(new Jogador { nome = "Romário", ataque = 98, defesa = 25, velocidade = 92, resistencia = 82 });
-        timeB.elenco.Add(new Jogador { nome = "Iniesta", ataque = 85, defesa = 80, velocidade = 86, resistencia = 88 });
-        timeB.elenco.Add(new Jogador { nome = "Gamarra", ataque = 40, defesa = 97, velocidade = 80, resistencia = 94 });
 
-        // Não vamos mais simular a partida automaticamente. O botão fará isso.
-        Debug.Log("Times e jogadores criados. Pronto para simular.");
+        Time timeC = new Time { nomeDoClube = "Gigantes da Baixada", reputacao = 3 };
+        timeC.elenco.Add(new Jogador { nome = "Pelé", ataque = 100, defesa = 50, velocidade = 95, resistencia = 95 });
+
+        Time timeD = new Time { nomeDoClube = "Arsenal dos Pampas", reputacao = 2 };
+        timeD.elenco.Add(new Jogador { nome = "Ronaldinho", ataque = 97, defesa = 40, velocidade = 94, resistencia = 89 });
+
+        nossaLiga.timesDaLiga.AddRange(new List<Time> { timeA, timeB, timeC, timeD });
     }
 
     // ==================================================================
-    // MUDANÇA: A função agora é 'public' para que o botão possa chamá-la.
-    // E não precisa mais de parâmetros, pois usará os times da classe.
+    // NOVA VERSÃO: Algoritmo Round-Robin para gerar um calendário justo.
     // ==================================================================
-    public void SimularPartida()
+    void GerarCalendario(Liga liga)
     {
-        int forcaAtaqueCasa = 0;
-        int forcaDefesaCasa = 0;
-        foreach (Jogador j in timeA.elenco)
-        {
-            forcaAtaqueCasa += j.ataque;
-            forcaDefesaCasa += j.defesa;
-        }
-
-        int forcaAtaqueFora = 0;
-        int forcaDefesaFora = 0;
-        foreach (Jogador j in timeB.elenco)
-        {
-            forcaAtaqueFora += j.ataque;
-            forcaDefesaFora += j.defesa;
-        }
-
-        int golsCasa = Random.Range(0, (forcaAtaqueCasa / 50) - (forcaDefesaFora / 100) + 2);
-        int golsFora = Random.Range(0, (forcaAtaqueFora / 50) - (forcaDefesaCasa / 100) + 2);
-
-        if (golsCasa < 0) golsCasa = 0;
-        if (golsFora < 0) golsFora = 0;
+        List<Time> times = liga.timesDaLiga.ToList(); // Cria uma cópia da lista para podermos manipular.
         
-        // ==================================================================
-        // NOVO: Em vez de Debug.Log, vamos atualizar nosso texto na tela!
-        // ==================================================================
-        string resultado = timeA.nomeDoClube + " " + golsCasa + " x " + golsFora + " " + timeB.nomeDoClube;
-        textoResultadoUI.text = resultado; // Atualiza o texto do objeto de UI.
-        Debug.Log("Partida simulada: " + resultado); // Manter o Debug.Log é bom para verificar.
+        // Se tivermos um número ímpar de times, adicionamos um "time fantasma" para folgas.
+        // Não é nosso caso agora, mas é bom para o futuro.
+        if (times.Count % 2 != 0)
+        {
+            times.Add(null); // 'null' representa a folga.
+        }
+
+        int numRodadas = times.Count - 1;
+        int numJogosPorRodada = times.Count / 2;
+
+        // Limpa o calendário antigo antes de gerar um novo.
+        liga.calendario.Clear();
+        List<Partida> jogosDoTurno = new List<Partida>();
+
+        for (int r = 0; r < numRodadas; r++)
+        {
+            for (int i = 0; i < numJogosPorRodada; i++)
+            {
+                Time timeCasa = times[i];
+                Time timeFora = times[times.Count - 1 - i];
+
+                // Se não for um jogo de folga, adiciona ao calendário.
+                if (timeCasa != null && timeFora != null)
+                {
+                    // Para garantir jogos em casa e fora variados, invertemos o mando a cada rodada.
+                    if (r % 2 == 1)
+                    {
+                        jogosDoTurno.Add(new Partida(timeFora, timeCasa));
+                    }
+                    else
+                    {
+                        jogosDoTurno.Add(new Partida(timeCasa, timeFora));
+                    }
+                }
+            }
+
+            // Lógica de rotação: Fixa o primeiro time e gira o resto.
+            Time timeFixo = times[1];
+            times.RemoveAt(1);
+            times.Add(timeFixo);
+        }
+
+        // Adiciona os jogos do primeiro turno ao calendário principal.
+        liga.calendario.AddRange(jogosDoTurno);
+
+        // Agora, cria o segundo turno (returno) invertendo o mando de campo.
+        List<Partida> jogosDoReturno = new List<Partida>();
+        foreach (Partida p in jogosDoTurno)
+        {
+            jogosDoReturno.Add(new Partida(p.timeFora, p.timeCasa));
+        }
+        liga.calendario.AddRange(jogosDoReturno);
+    }
+
+    // A função de simulação não precisa mudar, pois ela apenas lê o calendário.
+    public void SimularProximaRodada()
+    {
+        jogosPorRodada = nossaLiga.timesDaLiga.Count / 2;
+        if (rodadaAtual * jogosPorRodada >= nossaLiga.calendario.Count)
+        {
+            textoResultadoUI.text = "Fim da temporada!";
+            return;
+        }
+
+        StringBuilder resultadosDaRodada = new StringBuilder();
+        resultadosDaRodada.AppendLine("--- Resultados da Rodada " + (rodadaAtual + 1) + " ---");
+
+        int primeiroJogoDaRodada = rodadaAtual * jogosPorRodada;
+        int ultimoJogoDaRodada = primeiroJogoDaRodada + jogosPorRodada;
+
+        for (int i = primeiroJogoDaRodada; i < ultimoJogoDaRodada; i++)
+        {
+            Partida partida = nossaLiga.calendario[i];
+            
+            int forcaAtaqueCasa = 0;
+            foreach (Jogador j in partida.timeCasa.elenco) forcaAtaqueCasa += j.ataque;
+            int forcaDefesaFora = 0;
+            foreach (Jogador j in partida.timeFora.elenco) forcaDefesaFora += j.defesa;
+            partida.golsCasa = Random.Range(0, (forcaAtaqueCasa / 50) - (forcaDefesaFora / 100) + 2);
+            if (partida.golsCasa < 0) partida.golsCasa = 0;
+            
+            int forcaAtaqueFora = 0;
+            foreach (Jogador j in partida.timeFora.elenco) forcaAtaqueFora += j.ataque;
+            int forcaDefesaCasa = 0;
+            foreach (Jogador j in partida.timeCasa.elenco) forcaDefesaCasa += j.defesa;
+            partida.golsFora = Random.Range(0, (forcaAtaqueFora / 50) - (forcaDefesaCasa / 100) + 2);
+            if (partida.golsFora < 0) partida.golsFora = 0;
+            
+            partida.partidaJogada = true;
+            resultadosDaRodada.AppendLine(partida.timeCasa.nomeDoClube + " " + partida.golsCasa + " x " + partida.golsFora + " " + partida.timeFora.nomeDoClube);
+        }
+        textoResultadoUI.text = resultadosDaRodada.ToString();
+        rodadaAtual++;
     }
 }
