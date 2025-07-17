@@ -1,13 +1,23 @@
-using System.Collections.Generic; // Essencial para usar Listas!
+using System.Collections.Generic;
+using System.Linq; // Essencial para ordenação (Sort)
 
-// Define a estrutura de uma Liga/Campeonato.
 public class Liga
 {
     public string nomeDaLiga;
-
-    // A lista de todos os times que participam desta liga.
     public List<Time> timesDaLiga = new List<Time>();
-
-    // O calendário completo da temporada, que será uma lista de Partidas.
     public List<Partida> calendario = new List<Partida>();
+
+    // ==================================================================
+    // NOVO: A nossa tabela de classificação!
+    // ==================================================================
+    public List<TimeNaLiga> tabelaDeClassificacao = new List<TimeNaLiga>();
+
+    // Função para ordenar a tabela
+    public void OrdenarTabela()
+    {
+        tabelaDeClassificacao = tabelaDeClassificacao.OrderByDescending(t => t.pontos)
+                                                     .ThenByDescending(t => t.SaldoDeGols)
+                                                     .ThenByDescending(t => t.golsPro)
+                                                     .ToList();
+    }
 }
